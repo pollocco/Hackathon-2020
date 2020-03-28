@@ -1,0 +1,63 @@
+#map{
+    height: 95%;
+    width: 100%;
+    position: absolute;
+}
+
+body{
+    overflow: hidden;
+}
+
+.info{
+    font-size: 16px;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    background: rgba(255, 255, 255, 0.87);
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
+    border-radius: 4px;
+    padding: 12px;
+}
+
+.news{
+    font-size: 12px;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    background: rgba(255, 255, 255, 0.87);
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
+    border-radius: 4px;
+    padding: 12px;
+    width: 30%;
+    overflow: wrap;
+    visibility: hidden;
+}
+
+.reddit{
+    font-size: 14px;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    margin-top: 30px;
+    padding: 12px;
+    background-color: rgba(0, 0, 0, 0);
+    overflow: scroll;
+    overflow-x: hidden;
+}
+
+.leaflet-sidebar-content{
+    font-size: 14px;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    font-weight: lighter;
+}
+
+.info h3{
+    margin: 0;
+}
+
+.info h5{
+    font-weight: lighter;
+    margin: 0;
+}
+
+#bylineDate{
+    font-size: 12px;
+}
+
+#copyright{
+    font-size: 10px;
+}
