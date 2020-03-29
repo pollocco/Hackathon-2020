@@ -4,6 +4,7 @@
     bottom: 0;
     width: 100%;
     overflow: hidden;
+    transition: 500ms;
     z-index: 2000; }
     .leaflet-sidebar.collapsed {
       width: 40px; }
@@ -11,7 +12,7 @@
       .leaflet-sidebar {
         top: 10px;
         bottom: 10px;
-        transition: width 500ms; } }
+         } }
     @media (min-width: 768px) and (max-width: 991px) {
       .leaflet-sidebar {
         width: 305px;
@@ -88,7 +89,7 @@
     top: 0;
     bottom: 0;
     background-color: rgba(255, 255, 255, 0.95);
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto; }
     .leaflet-sidebar-left .leaflet-sidebar-content {
       left: 40px;
@@ -118,7 +119,8 @@
         min-width: 350px; } }
     @media (min-width: 1200px) {
       .leaflet-sidebar-pane {
-        min-width: 420px; } }
+        min-width: 420px;
+         } }
   
   .leaflet-sidebar-header {
     margin: -10px -20px 0;

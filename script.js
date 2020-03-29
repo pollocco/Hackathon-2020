@@ -1,21 +1,64 @@
 import 'ol/ol.css';
 import 'leaflet';
 import * as statesData from './us-states.json';
+import * as meep from './config.json'
 import 'leaflet-providers';
 import 'mapbox-gl';
 import 'mapbox-gl-leaflet';
+import 'leaflet.markercluster';
 import 'leaflet-sidebar-v2';
 const request = require('request');
 const csv = require('csvtojson');
 var snoowrap = require('snoowrap');
+
+var markers = L.markerClusterGroup();
+
+var Flickr = require('flickr-sdk');
 var originalTheme;
+var flickr = new Flickr(meep.config.FLAK);
+flickr.photos.search({
+  text: "coronavirus",
+  has_geo: "1",
+  safe_search: "2",
+  min_date: "2020-03-05",
+  accuracy: "11",
+  content_type: "1",
+  geo_context: "2",
+  bbox: "-125.3321, 23.8991, -65.7421, 49.4325",
+  per_page: "250",
+  page: `${Math.floor(Math.random() * 4 + 1)}`
+}).then(function (res) {
+  console.log(res.body);
+  let randomNum = Math.floor((Math.random() * 300 + 1));
+  console.log(randomNum)
+  var array = [];
+  var skip;
+  for(var i=randomNum; i<randomNum + 250; i += 5){
+    var iRange = (i % 250);
+    array.push(iRange);
+    let imgObj = res.body.photos.photo[iRange];
+    skip = skip+10;
+    flickr.photos.getInfo({photo_id: `${imgObj.id}`}).then(function(res){makeFlickrMarker(imgObj, res.body.photo)})
+  }
+  console.log(array);
+  map.addLayer(markers);
+})
+
+function makeFlickrMarker(img, imgInfo){
+  img.info = imgInfo;
+  var marker = L.marker([imgInfo.location.latitude, imgInfo.location.longitude]).on('click', function(){photoPane.update(img)});
+  markers.addLayer(marker);
+}
+
+//https://farm{farm-id}.staticflickr.com/{server-id}/{id}_{secret}.jpg
 
 var myStatesData = statesData
 
 const csvpath = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv';
 
 var casesByState = {};
-var map = L.map('map').setView([38.416381, -95.148209], 5);
+var map = L.map('map', {zoomControl: false}).setView([38.416381, -95.148209], 5);
+L.control.zoom({position: 'bottomright'}).addTo(map)
 
 csv().fromStream(request.get(csvpath)).subscribe((json)=>{          //CSV file containing New York Times' COVID-19 case numbers.
     var thisDate = new Date();                                      //  "subscribe" function reads CSV file in one line at a time,
@@ -51,6 +94,7 @@ function style(feature){                                                        
   }
 }
 
+
 function findColorFromJSON(cases){                                                                     //Determines color (from dark to light) for descending number of cases.
   return cases > 10000 ? '#016450' :
          cases > 4000 ? '#02818a' :
@@ -67,6 +111,25 @@ function findColorFromJSON(cases){                                              
 
 var info = L.control();                                                                               //Infoboxes that will lay atop the map
 /* var news = L.control({position: 'bottomright'}); */
+L.control.zoom({position: 'bottomright'});
+var photoPane = document.createElement('div');
+photoPane.id = 'photoPane';
+photoPane.classList.add('photoPane');
+photoPane.classList.add('leaflet-sidebar-content');
+
+photoPane.update = function(photo){
+  if(photo){
+    photoPane.isPhoto = true;
+    sidebar.open('photoPosts');
+    this.innerHTML = '<h3>' + photo.title + '</h3><div>' + `<a href="${photo.info.urls.url[0]._content}"><img src="https://farm${photo.farm}.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}.jpg"></img></a></br>` 
+            + '<p><i>' + photo.info.owner.username + '<br/>' + photo.info.dates.taken + '<br/>' + photo.info.description._content + '<br/></p></div>'
+    document.getElementById('photoPosts').lastChild.innerHTML = this.innerHTML;
+  }
+  else{this.innerHTML = '<div><h3>Click a marker to see pictures...</h3></div>p'}
+}
+
+photoPane.update();
+
 var reddit = document.createElement('div');
 reddit.id = 'reddit';
 reddit.classList.add('reddit');
@@ -75,6 +138,7 @@ reddit.classList.add('leaflet-sidebar-content')
 reddit.update = function(props, name){
   this.innerHTML = (props ? '<div><h3>Recent Reddit posts from r/Coronavirus about ' + name + '</h3>' : "<div><h3><i>Click a state to view local stories...</i></h3></div>");
   if(props){
+    sidebar.open('redditPosts')
     for(var i=0; i<10; i++){
       if(props[i]){
         var createdDate = new Date(props[i].created * 1000);
@@ -152,7 +216,7 @@ info.addTo(map);
 /* news.addTo(map); */
 
 var sidebar = L.control.sidebar({
-  autopan: false,
+  autopan: true,
   closeButton: true,
   position: "left"
 })
@@ -162,12 +226,48 @@ sidebar.addTo(map);
 var panelContent = sidebar.addPanel({
   id: 'redditPosts',
   title: 'Reddit Posts',
+  tab: '<i class="fab fa-reddit-alien"></i>',
   pane: reddit.innerHTML
 });
 
-sidebar.open('redditPosts');
+var photoContent = sidebar.addPanel({
+  id: 'photoPosts',
+  title: 'Photos',
+  tab: '<i class="far fa-images"></i>',
+  pane: photoPane.innerHTML
+})
 
-L.tileLayer.provider('Stamen.TonerLite').addTo(map);
+sidebar.open('photoPosts');
+
+var oldPane = document.querySelector('.leaflet-sidebar');
+
+console.log(oldPane)
+
+sidebar.on('content', function(e){
+  let pane = document.querySelector('.leaflet-sidebar');
+  console.log(e)
+  if(e.id === 'photoPosts'){
+    if(!photoPane.isPhoto){
+      return;
+    }
+    pane.style.width = "35%";
+    pane.style.maxWidth = "35%";
+  }
+  else if(e.id === 'redditPosts'){
+    pane.style.width = '25%';
+    pane.style.maxWidth = '25%';
+  }
+  else{
+    pane = oldPane;
+  }
+})
+
+sidebar.on('closing', function(){
+  let pane = document.querySelector('.leaflet-sidebar');
+  pane.style.cssText = '';
+})
+
+L.tileLayer.provider('Stamen.Toner').addTo(map);
 
 function foundUser(e){
   var radius = e.accuracy;
@@ -178,7 +278,7 @@ function foundUser(e){
 
 function searchNews(e){
     var layer = e.target;
-/*     var apiKeyNYT = "Z5gepkLLz3UR8lvG8NisT9APfFHGcj58"
+/*     var apiKeyNYT = process.env.NYTAK
     var req = new XMLHttpRequest(); */
     var name = layer.feature.properties.name;
 /*     if(name === "New York"){
@@ -197,8 +297,8 @@ function searchNews(e){
     req.send(); */
     snoowrap.fromApplicationOnlyAuth({
       userAgent: 'Windows:COVID-2.by.location:v1 (by /u/Bleepenvoy)',
-      clientId: 'dK1-vVddhx_5Qw',
-      clientSecret: 'wOMGjGtLxA76-y1XGYQx2k87tpc',
+      clientId: meep.config.RCLID,
+      clientSecret: meep.config.RCLSC,
       grantType: snoowrap.grantType.CLIENT_CREDENTIALS
     }).then(r => {
       return r.search({
@@ -211,5 +311,5 @@ function searchNews(e){
     })
 }
 
-map.locate({setView:true, maxZoom: 6}) 
+//map.locate({setView:true, maxZoom: 6}) 
 map.on('locationfound', foundUser);
