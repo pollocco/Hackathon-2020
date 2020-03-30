@@ -1,11 +1,12 @@
 #map{
-    height: 95%;
+    height: 100%;
     width: 100%;
     position: absolute;
 }
 
 body{
     overflow: hidden;
+    background-color: rgb(32, 32, 30);
 }
 
 .fa-reddit-alien {
@@ -43,12 +44,6 @@ body{
     width: 30%;
     overflow: wrap;
     visibility: hidden;
-}
-
-#photoPosts>img{
-    padding: 16px;
-    border: 4px solid black;
-    width: 90%;
 }
 
 .reddit{

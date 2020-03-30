@@ -1,17 +1,22 @@
 import 'ol/ol.css';
 import 'leaflet';
+import cameraPng from './camera.png'
+import shadowPng from './shadow.png'
 import * as statesData from './us-states.json';
 import * as meep from './config.json'
 import 'leaflet-providers';
 import 'mapbox-gl';
 import 'mapbox-gl-leaflet';
+import {VectorGrid} from 'leaflet.vectorgrid'
+var protobuf = require('pbf');
 import 'leaflet.markercluster';
 import 'leaflet-sidebar-v2';
 const request = require('request');
 const csv = require('csvtojson');
 var snoowrap = require('snoowrap');
 
-var markers = L.markerClusterGroup();
+var markers = L.markerClusterGroup({singleMarkerMode: true, animateAddingMarkers: true});
+var circles = L.layerGroup();
 
 var Flickr = require('flickr-sdk');
 var originalTheme;
@@ -20,7 +25,7 @@ flickr.photos.search({
   text: "coronavirus",
   has_geo: "1",
   safe_search: "2",
-  min_date: "2020-03-05",
+  min_taken_date: "2020-03-05",
   accuracy: "11",
   content_type: "1",
   geo_context: "2",
@@ -46,8 +51,38 @@ flickr.photos.search({
 
 function makeFlickrMarker(img, imgInfo){
   img.info = imgInfo;
-  var marker = L.marker([imgInfo.location.latitude, imgInfo.location.longitude]).on('click', function(){photoPane.update(img)});
+  var marker = L.marker([imgInfo.location.latitude, imgInfo.location.longitude]).on('click', function(){photoPane.update(img)})
   markers.addLayer(marker);
+}
+
+function getPhotosAtLatLng(e){
+  var latLng = e.target.getLatLng();
+  console.log(latLng);
+  var center = map.project(latLng);
+  map.setView(map.unproject(center), 9, {animate: true});
+  var circle = L.circle(map.unproject(center), {
+    color: 'black',
+    fillColor: 'white',
+    fillOpacity: 0.2,
+    radius: 32000
+  });
+  circles.addLayer(circle);
+  map.addLayer(circles)
+  flickr.photos.search({
+    text: "coronavirus",
+    safe_search: "2",
+    min_taken_date: "2020-03-05",
+    accuracy: "11",
+    lat: `${(Math.round(latLng.lat*1000)/1000)}`,
+    lon: `${(Math.round(latLng.lng*1000)/1000)}`,
+    radius: "32"
+  }).then(function(res){
+    console.log(res.body);
+    for(var i=0; i<res.body.photos.perpage; i++){
+      let imgObj = res.body.photos.photo[i];
+      flickr.photos.getInfo({photo_id: `${imgObj.id}`}).then(function(res){makeFlickrMarker(imgObj, res.body.photo)})
+    }
+  })
 }
 
 //https://farm{farm-id}.staticflickr.com/{server-id}/{id}_{secret}.jpg
@@ -57,7 +92,7 @@ var myStatesData = statesData
 const csvpath = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv';
 
 var casesByState = {};
-var map = L.map('map', {zoomControl: false}).setView([38.416381, -95.148209], 5);
+var map = L.map('map', {zoomControl: false, maxZoom: 29}).setView([38.416381, -95.148209], 5);
 L.control.zoom({position: 'bottomright'}).addTo(map)
 
 csv().fromStream(request.get(csvpath)).subscribe((json)=>{          //CSV file containing New York Times' COVID-19 case numbers.
@@ -95,6 +130,31 @@ function style(feature){                                                        
 }
 
 
+
+var cameraIcon = L.icon({
+    iconUrl: cameraPng,
+    iconSize: [30, 30],
+    iconAnchor: [15, 0]
+})
+console.log(cameraIcon)
+
+var cameraMarker = L.marker([29.91342, -72.29003],
+    {draggable: true, icon: cameraIcon}).on({
+      dragend: getPhotosAtLatLng,
+      dragstart: deleteCircle
+    }).addTo(map)
+
+cameraMarker.bindPopup("Click and drag me to find pictures for a specific area.")
+
+setTimeout(function(){cameraMarker.openPopup()}, 5000)
+
+function deleteCircle(){
+  if(map.hasLayer(circles)){
+    map.removeLayer(circles)
+    circles.clearLayers();
+  }
+}
+
 function findColorFromJSON(cases){                                                                     //Determines color (from dark to light) for descending number of cases.
   return cases > 10000 ? '#016450' :
          cases > 4000 ? '#02818a' :
@@ -121,11 +181,11 @@ photoPane.update = function(photo){
   if(photo){
     photoPane.isPhoto = true;
     sidebar.open('photoPosts');
-    this.innerHTML = '<h3>' + photo.title + '</h3><div>' + `<a href="${photo.info.urls.url[0]._content}"><img src="https://farm${photo.farm}.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}.jpg"></img></a></br>` 
-            + '<p><i>' + photo.info.owner.username + '<br/>' + photo.info.dates.taken + '<br/>' + photo.info.description._content + '<br/></p></div>'
+    this.innerHTML = '<h3>' + photo.title + '</h3>' + `<a href="${photo.info.urls.url[0]._content}"><img src="https://farm${photo.farm}.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}.jpg"></img></a></br>` 
+            + '<p><i>' + photo.info.owner.username + '<br/>' + photo.info.dates.taken + '<br/>' + photo.info.description._content + '<br/></p>'
     document.getElementById('photoPosts').lastChild.innerHTML = this.innerHTML;
   }
-  else{this.innerHTML = '<div><h3>Click a marker to see pictures...</h3></div>p'}
+  else{this.innerHTML = '<div><h3>Click a marker to see pictures...</h3></div>'}
 }
 
 photoPane.update();
@@ -143,7 +203,7 @@ reddit.update = function(props, name){
       if(props[i]){
         var createdDate = new Date(props[i].created * 1000);
         createdDate = JSON.stringify(createdDate);
-        this.innerHTML += props[i].title + '<br/>' + '<i>+' + props[i].ups + ' upvotes</br>' + createdDate.substring(1, 11) + '</i></br></br></div>';
+        this.innerHTML += '<a target="_blank" href="http://www.reddit.com' + props[i].permalink + '">' + props[i].title + '</a><br/>' + '<i>+' + props[i].ups + ' upvotes</br>' + createdDate.substring(1, 11) + '</i></br></br></div>';
       }
     }
   }
@@ -195,7 +255,6 @@ function highlightState(e){
   layer.setStyle({
     weight: 3,
     dashArray: '',
-    fillOpacity: 0.35
   })
 }
 
@@ -237,8 +296,6 @@ var photoContent = sidebar.addPanel({
   pane: photoPane.innerHTML
 })
 
-sidebar.open('photoPosts');
-
 var oldPane = document.querySelector('.leaflet-sidebar');
 
 console.log(oldPane)
@@ -267,7 +324,23 @@ sidebar.on('closing', function(){
   pane.style.cssText = '';
 })
 
-L.tileLayer.provider('Stamen.Toner').addTo(map);
+var mapboxVectorTileOptions = {
+  interactive: true,
+  maxZoom: 29,
+  tolerance: 20,
+  extent: 4096,
+  buffer: 64,
+  indexMaxZoom: 0,
+  indexMaxPoints: 100000
+}
+
+var gl = L.mapboxGL({
+  attribution: '<a href="https://www.maptiler.com/copyright/" target="_blank">© MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a><div>Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a></div>',
+  accessToken: 'not-needed',
+  maxZoom: 29,
+  style: 'https://api.maptiler.com/maps/6b84c589-0e12-49b7-b2ce-817d4e3eaf7e/style.json?key=pSpHSntkFsKjyR1ygjJb'
+}).addTo(map);
+
 
 function foundUser(e){
   var radius = e.accuracy;
@@ -305,6 +378,7 @@ function searchNews(e){
         query: name,
         subreddit: 'coronavirus',
         time: 'week',
+        sort: 'new',
         limit: 10
       }).then(function(response){
         reddit.update(response, name)})
