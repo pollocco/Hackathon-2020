@@ -25,13 +25,26 @@ body{
     border: 4px solid black;
 }
 
-.info{
+.numOfCasesBox{
     font-size: 16px;
     font-family: Georgia, 'Times New Roman', Times, serif;
     background: rgba(255, 255, 255, 0.87);
     box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
     border-radius: 4px;
     padding: 12px;
+}
+
+#flickrNote{
+    font-size: 14px;
+    margin-top: 50px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.fa-location-arrow{
+    color: rgb(0, 93, 231);
+    background-color: lightblue;
+    border-radius: 4px;
+    padding: 8px;
 }
 
 .news{
@@ -64,11 +77,11 @@ body{
     font-weight: lighter;
 }
 
-.info h3{
+.numOfCasesBox h3{
     margin: 0;
 }
 
-.info h5{
+.numOfCasesBox h5{
     font-weight: lighter;
     margin: 0;
 }
